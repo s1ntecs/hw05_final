@@ -4,7 +4,7 @@ from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import Client, TestCase, override_settings
 from django.urls import reverse
-from ..models import Post, Group, User, Comment
+from ..models import Post, Group, User, Comment, Follow
 
 TEMP_MEDIA_ROOT = tempfile.mkdtemp(dir=settings.BASE_DIR)
 
@@ -39,6 +39,7 @@ class PostCreateFormTests(TestCase):
         shutil.rmtree(TEMP_MEDIA_ROOT, ignore_errors=True)
 
     def setUp(self):
+        self.follower = User.objects.create_user(username='misha')
         # Создаем неавторизованный клиент
         self.guest_client = Client()
         # Создаем авторизованного клиента
@@ -185,3 +186,27 @@ class PostCreateFormTests(TestCase):
         last_comment = Comment.objects.latest('created')
         # После успешной отправки комментарий появляется на странице поста.
         self.assertEqual(last_comment.text, form_data['text'])
+        self.assertEqual(last_comment.author, self.user)
+        self.assertEqual(last_comment.post.id, self.post.pk)
+
+    def test_guest_cant_follow(self):
+        """Проверяем, что гость не может подписаться."""
+        follow_count = Follow.objects.count()
+        # От имени гостя пытаемся подписаться
+        self.guest_client.get(
+            reverse('posts:profile_follow', kwargs={'username': 'susel'}))
+        # Проверяем, что число полписок не изменилось
+        self.assertEqual(Follow.objects.count(), follow_count)
+
+    def test_guest_cant_unfollow(self):
+        """Проверяем, что гость не может отписаться."""
+        Follow.objects.create(
+            author=self.user,
+            user=self.follower,
+        )
+        follow_count = Follow.objects.count()
+        # От имени гостя пытаемся подписаться
+        self.guest_client.get(
+            reverse('posts:profile_unfollow', kwargs={'username': 'misha'}))
+        # Проверяем, что число полписок не изменилось
+        self.assertEqual(Follow.objects.count(), follow_count)

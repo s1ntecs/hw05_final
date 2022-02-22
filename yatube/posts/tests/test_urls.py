@@ -1,5 +1,5 @@
 from django.test import TestCase, Client
-from ..models import Post, Group, User
+from ..models import Post, Group, User, Follow
 from http import HTTPStatus
 
 
@@ -20,6 +20,7 @@ class TaskURLTests(TestCase):
 
     def setUp(self):
         # Создаем неавторизованный клиент
+        self.follower = User.objects.create_user(username='misha')
         self.guest_client = Client()
         # Создаем пользователя
         self.authorized_client = Client()
@@ -57,6 +58,21 @@ class TaskURLTests(TestCase):
         response = self.authorized_client.get(f'/posts/{self.post.pk}/edit/')
         self.assertEqual(response.status_code, HTTPStatus.OK)
 
+    def test_follow_index_url_exists_at_desired_location_authorized(self):
+        """Страница /follow/ доступна авторизованному пользователю."""
+        response = self.authorized_client.get('/follow/')
+        self.assertEqual(response.status_code, HTTPStatus.OK)
+
+    def test_following_url_exists_at_desired_location_authorized(self):
+        """Страница profile/susel/follow/ доступна пользователю."""
+        response = self.authorized_client.get('/profile/misha/follow/')
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+
+    def test_unfollowing_url_exists_at_desired_location_authorized(self):
+        """Страница profile/susel/follow/ доступна пользователю."""
+        response = self.authorized_client.get('/profile/misha/unfollow/')
+        self.assertEqual(response.status_code, HTTPStatus.FOUND)
+
     def test_error404_url_redirect_anonymous(self):
         """выдает ошибку 404 при вызове несуществующей страницы."""
         response = self.guest_client.get(f'{"/post/now"}')
@@ -70,6 +86,7 @@ class TaskURLTests(TestCase):
             '/create/': 'posts/create_post.html',
             '/posts/1/edit/': 'posts/create_post.html',
             '/group/test-group/': 'posts/group_list.html',
+            '/follow/': 'posts/follow.html',
         }
         for address, template in templates_url_names.items():
             with self.subTest(address=address):

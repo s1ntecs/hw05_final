@@ -53,6 +53,14 @@ class PaginationTests(TestCase):
         # Авторизуем пользователя
         self.authorized_client.force_login(self.user)
         self.follower = User.objects.create_user(username='follower')
+        # Создаем связь подписчика с автором
+        Follow.objects.create(
+            author=self.user,
+            user=self.follower,
+        )
+        self.follower_client = Client()
+        # Авторизуем пользователя
+        self.follower_client.force_login(self.follower)
         cache.clear()
 
     def test_index_page_uses_correct_template(self):
@@ -89,6 +97,23 @@ class PaginationTests(TestCase):
             reverse('posts:post_edit', kwargs={'post_id': '1'}))
         self.assertTemplateUsed(response, 'posts/create_post.html')
 
+    def test_follow_page_uses_correct_template(self):
+        """URL-адрес использует шаблон posts/follow.html."""
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        self.assertTemplateUsed(response, 'posts/follow.html')
+
+    def test_profile_follow_correct_redirect(self):
+        """URL-адрес переводит на /profile/susel/."""
+        response = self.authorized_client.get(
+            reverse('posts:profile_follow', kwargs={'username': 'susel'}))
+        self.assertRedirects(response, '/profile/susel/')
+
+    def test_profile_follow_correct_redirect(self):
+        """URL-адрес переводит на /profile/susel/."""
+        response = self.authorized_client.get(
+            reverse('posts:profile_unfollow', kwargs={'username': 'susel'}))
+        self.assertRedirects(response, '/profile/susel/')
+
     def test_home_page_show_correct_context(self):
         """Шаблон index сформирован с правильным контекстом."""
         response = self.authorized_client.get(reverse('posts:index'))
@@ -110,6 +135,22 @@ class PaginationTests(TestCase):
             reverse('posts:group_list', kwargs={'slug': 'test-group'}))
         self.assertIn(['page_obj'][0], response.context)
         self.assertEqual(len(response.context['page_obj']), 1)
+        first_object = response.context['page_obj'][0]
+        post_text_0 = first_object.text
+        post_author_0 = str(first_object.author.username)
+        post_title_0 = first_object.group.title
+        post_description_0 = first_object.group.description
+        self.assertEqual(post_text_0, 'это пост')
+        self.assertEqual(post_author_0, 'susel')
+        self.assertEqual(post_title_0, 'Тестовая группа')
+        self.assertEqual(post_description_0, 'test-group')
+
+    def test_follow_page_show_correct_context(self):
+        """Шаблон follow сформирован с правильным контекстом."""
+        response = self.follower_client.get(reverse('posts:follow_index'))
+        self.assertIn(['page_obj'][0], response.context)
+        self.assertEqual(len(response.context['page_obj']), 2)
+        self.assertEqual(str(response.context['authors'][0]), 'susel')
         first_object = response.context['page_obj'][0]
         post_text_0 = first_object.text
         post_author_0 = str(first_object.author.username)
@@ -259,16 +300,9 @@ class PaginationTests(TestCase):
 
     def test_follow_correct_work(self):
         # Создаем связь подписчика с автором
-        Follow.objects.create(
-            author=self.user,
-            user=self.follower,
-        )
         # Создаем клиент для подписчика
-        follower_client = Client()
-        # Авторизуем пользователя
-        follower_client.force_login(self.follower)
         """Новая запись пользователя появляется у тех, кто на него подписан"""
-        response = follower_client.get(reverse('posts:follow_index'))
+        response = self.follower_client.get(reverse('posts:follow_index'))
         self.assertIn(['page_obj'][0], response.context)
         first_object = response.context['page_obj'][0]
         follow_object = Follow.objects.filter(user=self.follower.id)
@@ -310,6 +344,15 @@ class PaginatorViewsTest(TestCase):
         self.authorized_client = Client()
         # Авторизуем пользователя
         self.authorized_client.force_login(self.user)
+        self.follower = User.objects.create_user(username='follower')
+        # Создаем связь подписчика с автором
+        Follow.objects.create(
+            author=self.user,
+            user=self.follower,
+        )
+        self.follower_client = Client()
+        # Авторизуем пользователя
+        self.follower_client.force_login(self.follower)
         cache.clear()
 
     def test_index_first_page_contains_ten_records(self):
@@ -353,5 +396,19 @@ class PaginatorViewsTest(TestCase):
         # Проверка: на второй странице должно быть три поста.
         response = self.authorized_client.get(
             reverse('posts:index') + '?page=2')
+        self.assertEqual(
+            len(response.context['page_obj']), (POSTS_COUNT - PR_POSTS))
+
+    def test_follow_index_first_page_contains_ten_records(self):
+        """Проверяем Пагинатор. количество постов на первой странице follow"""
+        response = self.follower_client.get(reverse('posts:follow_index'))
+        # Проверка: количество постов на первой странице равно 10.
+        self.assertEqual(len(response.context['page_obj']), PR_POSTS)
+
+    def test_follow_index_second_page_contains_three_records(self):
+        """Проверяем Пагинатор. количество постов на второй странице profile"""
+        # Проверка: на второй странице должно быть три поста.
+        response = self.follower_client.get(
+            reverse('posts:follow_index') + '?page=2')
         self.assertEqual(
             len(response.context['page_obj']), (POSTS_COUNT - PR_POSTS))

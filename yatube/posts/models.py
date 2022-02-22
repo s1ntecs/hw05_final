@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import UniqueConstraint
 from django.contrib.auth import get_user_model
 from django.urls import reverse
 from core.models import CreatedModel, PubdateModel
@@ -101,4 +102,9 @@ class Follow(models.Model):
         on_delete=models.CASCADE,
         related_name='following',
         verbose_name='Подписаться'
+    )
+
+    UniqueConstraint(
+        name='unique_follow',
+        fields=['author', 'user']
     )
