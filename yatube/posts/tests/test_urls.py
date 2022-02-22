@@ -1,5 +1,5 @@
 from django.test import TestCase, Client
-from ..models import Post, Group, User, Follow
+from ..models import Post, Group, User
 from http import HTTPStatus
 
 
