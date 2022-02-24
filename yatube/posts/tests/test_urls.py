@@ -87,6 +87,7 @@ class TaskURLTests(TestCase):
             '/posts/1/edit/': 'posts/create_post.html',
             '/group/test-group/': 'posts/group_list.html',
             '/follow/': 'posts/follow.html',
+            '/asdasda/': 'core/404.html'
         }
         for address, template in templates_url_names.items():
             with self.subTest(address=address):

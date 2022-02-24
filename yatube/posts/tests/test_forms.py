@@ -46,6 +46,14 @@ class PostCreateFormTests(TestCase):
         self.authorized_client = Client()
         # Авторизуем пользователя
         self.authorized_client.force_login(self.user)
+        # Создаем связь подписчика с автором
+        Follow.objects.create(
+            author=self.user,
+            user=self.follower,
+        )
+        self.follower_client = Client()
+        # Авторизуем пользователя
+        self.follower_client.force_login(self.follower)
 
     def test_create_post(self):
         """Валидная форма создает запись в Post."""
@@ -207,6 +215,61 @@ class PostCreateFormTests(TestCase):
         follow_count = Follow.objects.count()
         # От имени гостя пытаемся подписаться
         self.guest_client.get(
-            reverse('posts:profile_unfollow', kwargs={'username': 'misha'}))
+            reverse('posts:profile_unfollow', kwargs={'username': 'susel'}))
         # Проверяем, что число полписок не изменилось
         self.assertEqual(Follow.objects.count(), follow_count)
+
+    def test_authorized_can_follow(self):
+        """Проверяем, что авторизованный пользователь может подписаться."""
+        follow_count = Follow.objects.count()
+        # Подписываемся от имени авторизованного пользователя
+        self.authorized_client.get(
+            reverse('posts:profile_follow', kwargs={'username': 'misha'}))
+        # Проверяем, что появилась одна подписка
+        self.assertEqual(Follow.objects.count(), follow_count + 1)
+
+    def test_authorized_can_unfollow(self):
+        """Проверяем, что авторизованный пользователь может отписаться."""
+        follow_count = Follow.objects.count()
+        # Авторизованный пользователь отписывается
+        self.follower_client.get(
+            reverse('posts:profile_unfollow', kwargs={'username': 'susel'}))
+        # Проверяем, что число полписок изменилось
+        self.assertEqual(Follow.objects.count(), follow_count - 1)
+
+    def test_follow_work(self):
+        """Проверяем работу подписки"""
+        # Создаем клиент для подписчика
+        # Создаем клиент для подписки
+        self.follower_client.get(
+            reverse('posts:profile_follow', kwargs={'username': 'susel'}))
+        # Запрашиваем авторов с модели Follow
+        author = Follow.objects.values_list('author', flat=True)
+        # Запрашиваем подпичиков с модели Follow
+        follow = Follow.objects.values_list('user', flat=True)
+        # Запрашиваем автора и подписчика с модели User
+        author_user = User.objects.get(id__in=author)
+        follower_user = User.objects.get(id__in=follow)
+        # Проверяем подписан ли пользователь 'follower' на 'susel'
+        self.assertEqual(follower_user, self.follower)
+        self.assertEqual(author_user, self.user)
+
+    def test_follow_correct_work(self):
+        # Создаем связь подписчика с автором
+        # Создаем клиент для подписчика
+        """Новая запись пользователя появляется у тех, кто на него подписан"""
+        response = self.follower_client.get(reverse('posts:follow_index'))
+        self.assertIn(['page_obj'][0], response.context)
+        first_object = response.context['page_obj'][0]
+        follow_object = Follow.objects.filter(user=self.follower.id)
+        author = follow_object.values_list('author', flat=True)
+        post_auth_0 = first_object.author.id
+        self.assertIn(post_auth_0, author)
+
+        """Проверяем что посты автора не появляются у тех, кто не подписан"""
+        response = self.authorized_client.get(reverse('posts:follow_index'))
+        self.assertIn(['page_obj'][0], response.context)
+        first_object = response.context['authors']
+        # Проверяем, что в контексте нет автора
+        # на которого пользователь не подписан
+        self.assertNotIn(author, first_object)

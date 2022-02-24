@@ -269,55 +269,6 @@ class PaginationTests(TestCase):
         # Проверяем, что в контексте 1 пост удален
         self.assertIs(len(response.context['page_obj']), 1)
 
-    def test_follow_and_unfollow_work(self):
-        """Проверяем работу подписки"""
-        # Создаем клиент для подписчика
-        follower_client = Client()
-        # Авторизуем пользователя
-        follower_client.force_login(self.follower)
-        # Создаем клиент для подписки
-        follower_client.get(
-            reverse('posts:profile_follow', kwargs={'username': 'susel'}))
-        # Запрашиваем авторов с модели Follow
-        author = Follow.objects.values_list('author', flat=True)
-        # Запрашиваем подпичиков с модели Follow
-        follow = Follow.objects.values_list('user', flat=True)
-        # Запрашиваем автора и подписчика с модели User
-        author_user = User.objects.get(id__in=author)
-        follower_user = User.objects.get(id__in=follow)
-        # Проверяем подписан ли пользователь 'follower' на 'susel'
-        self.assertEqual(follower_user, self.follower)
-        self.assertEqual(author_user, self.user)
-        """Проверяем работу отписки"""
-        # считаем количество подписок до отписки
-        Follow_counted = Follow.objects.count()
-        follower_client.get(
-            reverse('posts:profile_unfollow', kwargs={'username': 'susel'}))
-        # считаем количество подписок после отписки
-        Follow_count = Follow.objects.count()
-        # смотрим произошла ли отписка
-        self.assertEqual(Follow_count, (Follow_counted - 1))
-
-    def test_follow_correct_work(self):
-        # Создаем связь подписчика с автором
-        # Создаем клиент для подписчика
-        """Новая запись пользователя появляется у тех, кто на него подписан"""
-        response = self.follower_client.get(reverse('posts:follow_index'))
-        self.assertIn(['page_obj'][0], response.context)
-        first_object = response.context['page_obj'][0]
-        follow_object = Follow.objects.filter(user=self.follower.id)
-        author = follow_object.values_list('author', flat=True)
-        post_auth_0 = first_object.author.id
-        self.assertIn(post_auth_0, author)
-
-        """Проверяем что посты автора не появляются у тех, кто не подписан"""
-        response = self.authorized_client.get(reverse('posts:follow_index'))
-        self.assertIn(['page_obj'][0], response.context)
-        first_object = response.context['authors']
-        # Проверяем, что в контексте нет автора
-        # на которого пользователь не подписан
-        self.assertNotIn(author, first_object)
-
 
 class PaginatorViewsTest(TestCase):
     @classmethod
