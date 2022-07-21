@@ -1,3 +1,1 @@
-# hw05_final
-
-[![CI](https://github.com/yandex-praktikum/hw05_final/actions/workflows/python-app.yml/badge.svg?branch=master)](https://github.com/yandex-praktikum/hw05_final/actions/workflows/python-app.yml)
+http://changelog.md/storage/logos/95fb28c8-76f3-4269-a342-3a1f4c9db8fa.webp
